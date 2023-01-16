@@ -9,9 +9,6 @@ library(tidyr)
 library(DT)
 library(readxl)
 
-# Import custom functions
-source("R/To_Knack_Transform.R")
-source("R/Upload_To_MySQL.R")
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(collapsible = TRUE,
@@ -345,5 +342,5 @@ server <- function(input, output) {
 }
 
 # Run the application
-browseURL("http://localhost:3838")
-shinyApp(ui = ui, server = server, options = list(port = 3838))
+#browseURL("http://localhost:3838")
+#shinyApp(ui = ui, server = server, options = list(port = 3838))
