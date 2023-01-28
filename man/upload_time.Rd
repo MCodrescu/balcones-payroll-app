@@ -4,14 +4,13 @@
 \alias{upload_time}
 \title{Upload Time}
 \usage{
-upload_time(timesheet, dev_mode = TRUE)
+upload_time(timesheet, con)
 }
 \arguments{
 \item{timesheet}{A tidy data frame of employee time. The result of
 get_timesheet_hours()}
 
-\item{dev_mode}{A logical. Should the upload be to a temporary table for
-development purposes only.}
+\item{con}{A database connection object.}
 }
 \value{
 Nothing is returned.
