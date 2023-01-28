@@ -140,7 +140,7 @@ ui <- shiny::bootstrapPage(
         style = "display: none;",
 
         shiny::tags$h3(
-          class = "text-center pb-3",
+          class = "text-center",
           "Reports"
         ),
 
@@ -148,10 +148,7 @@ ui <- shiny::bootstrapPage(
           "reportSelect",
           label = "Select a Report",
           width = "100%",
-          choices = c(
-            "Job Summary",
-            "Employee Summary"
-          )
+          choices = NULL
         ),
 
         shiny::hr(),
@@ -159,10 +156,10 @@ ui <- shiny::bootstrapPage(
         #### Job Summary Report -------------------------------------------------
         shiny::div(
           id = "jobSummaryReportDiv",
-          class = "pb-3 pt-2",
+          class = "pt-1",
 
           shiny::tags$h4(
-            class = "text-center pb-3",
+            class = "text-center",
             "Job Summary Report"
           ),
 
@@ -181,7 +178,7 @@ ui <- shiny::bootstrapPage(
 
           shiny::tags$button(
             id = "jobSummaryReportButton",
-            class = "btn btn-outline-primary w-100 mt-3",
+            class = "btn btn-outline-primary w-100 my-3",
             "Run Report"
           )
         ),
@@ -191,29 +188,29 @@ ui <- shiny::bootstrapPage(
         shiny::div(
           id = "employeeSummaryReportDiv",
           style = "display: none;",
-          class = "pb-3 pt-2",
+          class = "pt-1",
 
           shiny::tags$h4(
-            class = "text-center pb-3",
-            "Job Summary Report"
+            class = "text-center",
+            "Employee Summary Report"
           ),
 
           shiny::selectInput(
-            "jobSummaryReportJobSelect",
-            label = "Job Number",
+            "employeeSummaryReportEmployeeSelect",
+            label = "Employee",
             width = "100%",
             choices = NULL
           ),
 
           shiny::dateRangeInput(
-            "jobSummaryReportDateRange",
+            "employeeSummaryReportDateRange",
             label = "Date Range",
             width = "100%"
           ),
 
           shiny::tags$button(
-            id = "jobSummaryReportButton",
-            class = "btn btn-outline-primary w-100 mt-3",
+            id = "employeeSummaryReportButton",
+            class = "btn btn-outline-primary w-100 my-3",
             "Run Report"
           )
         )
@@ -236,6 +233,32 @@ server <- function(input, output, session) {
     shinyjs::hideElement("payrollDiv")
     shinyjs::hideElement("uploadDiv")
     shinyjs::showElement("reportsDiv")
+
+    all_job_numbers <-
+      DBI::dbGetQuery(
+        pool,
+        "SELECT DISTINCT job_number FROM employee_time"
+      ) |>
+      dplyr::pull(1)
+
+    all_employees <-
+      DBI::dbGetQuery(
+        pool,
+        "SELECT DISTINCT employee FROM employee_time"
+      ) |>
+      dplyr::pull(1)
+
+    shiny::updateSelectInput(
+      session,
+      "jobSummaryReportJobSelect",
+      choices = all_job_numbers
+    )
+
+    shiny::updateSelectInput(
+      session = session,
+      inputId = "employeeSummaryReportEmployeeSelect",
+      choices = all_employees
+    )
   })
 
   devSwitchClicked <- TRUE
@@ -258,6 +281,28 @@ server <- function(input, output, session) {
       pool::poolReturn(con)
   })
 
+  all_reports <- list(
+      "Job Summary" = "jobSummaryReportDiv",
+      "Employee Summary" = "employeeSummaryReportDiv"
+  )
+
+  shiny::updateSelectInput(
+    session = session,
+    inputId = "reportSelect",
+    choices = all_reports
+  )
+
+  shinyjs::onevent("change", "reportSelect", {
+    report_to_show <- all_reports[all_reports == input$reportSelect]
+    reports_to_hide <- all_reports[all_reports != input$reportSelect]
+
+    shinyjs::showElement(report_to_show[[1]])
+    purrr::walk(
+      reports_to_hide,
+      shinyjs::hideElement
+    )
+  })
+
   # Database Connection ---------------------------------------------------
 
   keyset <- tryCatch({
@@ -270,6 +315,8 @@ server <- function(input, output, session) {
   if (keyset){
 
     tryCatch({
+      shiny::showNotification("Connecting ...")
+
       pool <-
         pool::dbPool(
           RMySQL::MySQL(),
@@ -280,18 +327,7 @@ server <- function(input, output, session) {
           dbname = "job_register_dev"
         )
 
-      all_job_numbers <-
-        DBI::dbGetQuery(
-          pool,
-          "SELECT DISTINCT job_number FROM employee_time"
-        ) |>
-        dplyr::pull(1)
-
-      shiny::updateSelectInput(
-        session,
-        "jobSummaryReportJobSelect",
-        choices = all_job_numbers
-      )
+      shiny::showNotification("Connected")
 
     }, error = function(error){
       shiny::showNotification(error$message)
@@ -332,9 +368,22 @@ server <- function(input, output, session) {
     shinyjs::onclick(
       "submitDBCredentials",
       {
-        keyring::key_set("BalconesDBHost", input$balconesDBHost)
-        keyring::key_set("BalconesDBUsername", input$balconesDBUsername)
-        keyring::key_set("BalconesDBPassword", input$balconesDBPassword)
+        keyring::key_set_with_value(
+          "BalconesDBHost",
+          password = input$balconesDBHost
+        )
+
+        keyring::key_set_with_value(
+          "BalconesDBUsername",
+          password = input$balconesDBUsername
+        )
+
+        keyring::key_set_with_value(
+          "BalconesDBPassword",
+          password = input$balconesDBPassword
+        )
+
+        shiny::showNotification("Connecting ...")
 
         pool <-
           pool::dbPool(
@@ -346,18 +395,7 @@ server <- function(input, output, session) {
             dbname = "job_register_dev"
           )
 
-        all_job_numbers <-
-          DBI::dbGetQuery(
-            pool,
-            "SELECT DISTINCT job_number FROM employee_time"
-          ) |>
-          dplyr::pull(1)
-
-        shiny::updateSelectInput(
-          session,
-          "jobSummaryReportJobSelect",
-          choices = all_job_numbers
-        )
+        shiny::showNotification("Connected")
       }
     )
   }
@@ -593,7 +631,91 @@ server <- function(input, output, session) {
   )
 
   ## Employee Summary Report ----------------------------------------------
+  shinyjs::onclick(
+    "employeeSummaryReportButton",
+    {
+      employee <- input$employeeSummaryReportEmployeeSelect
+      start_date <- input$employeeSummaryReportDateRange[1]
+      end_date <- input$employeeSummaryReportDateRange[2]
 
+      report <-
+        DBI::dbGetQuery(
+          pool,
+          glue::glue(
+            "
+            SELECT DISTINCT
+              employee,
+              job_number,
+              work_date,
+              hours_worked
+            FROM employee_time
+            WHERE employee = '{employee}'
+            AND work_date >= '{start_date}'
+            AND work_date <= '{end_date}'
+            "
+          )
+        )
+
+      output$downloadEmployeeSummaryReport <-
+        shiny::downloadHandler(
+          filename = function(){
+            glue::glue(
+              "employee_summary_report_{format(Sys.Date(), \"%Y%m%d\")}.csv"
+            )
+          },
+          content = function(file) {
+            write.csv(report, file, row.names = FALSE)
+          }
+        )
+
+      shiny::showModal(
+        shiny::modalDialog(
+          easyClose = TRUE,
+          size = "xl",
+          shiny::h3("Employee Summary Report"),
+          shiny::p(
+            glue::glue(
+              "{employee} | {format(as.Date(start_date), \"%B %d, %Y\")} to {format(as.Date(end_date), \"%B %d, %Y\")}"
+            )
+          ),
+          shiny::div(
+            class = "table-responsive",
+            style = "max-height: 70vh;",
+            DT::renderDataTable(
+              options = list(
+                dom = "t",
+                paging = FALSE,
+                ordering = FALSE
+              ),
+              server = TRUE,
+              rownames = FALSE,
+              {
+                report
+              }
+            )
+          ),
+          footer = shiny::tagList(
+            shiny::downloadButton(
+              "downloadEmployeeSummaryReport",
+              "Download"
+            ),
+            shiny::modalButton("Dismiss")
+          )
+        )
+      )
+
+    }
+  )
+
+
+  # Shiny On Close -------------------------------------------------------------
+  shiny::onSessionEnded(
+    function(){
+      try(pool::poolClose(pool))
+      shiny::stopApp()
+    }
+
+  )
 }
 
 shinyApp(ui = ui, server = server)
