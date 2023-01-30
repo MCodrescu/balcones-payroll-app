@@ -60,13 +60,14 @@ ui <- shiny::bootstrapPage(
                     class = "form-check-input",
                     type = "checkbox",
                     role = "switch",
-                    id = "devSwitch"
+                    id = "devSwitch",
+                    "checked" = ""
                   ),
                   shiny::tags$label(
                     class = "form-check-label",
                     id = "devProdSwitchLabel",
                     "for" = "devSwitch",
-                    "Dev"
+                    "Prod"
                   )
                 )
               )
@@ -261,7 +262,7 @@ server <- function(input, output, session) {
     )
   })
 
-  devSwitchClicked <- TRUE
+  devSwitchClicked <- FALSE
   devSwitchLabel <- c("Dev", "Prod")
   databaseName <- c("job_register_dev", "job_register")
 
