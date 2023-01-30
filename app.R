@@ -325,7 +325,7 @@ server <- function(input, output, session) {
           port = 3306,
           username = keyring::key_get("BalconesDBUsername"),
           password = keyring::key_get("BalconesDBPassword"),
-          dbname = "job_register_dev"
+          dbname = "job_register"
         )
 
       shiny::showNotification("Connected")
