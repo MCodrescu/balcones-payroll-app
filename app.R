@@ -418,6 +418,18 @@ server <- function(input, output, session) {
         pool
       )
 
+    output$downloadPayroll <-
+      shiny::downloadHandler(
+        filename = function(){
+          glue::glue(
+            "payroll_{format(Sys.Date(), \"%Y%m%d\")}.csv"
+          )
+        },
+        content = function(file) {
+          write.csv(time_data, file, row.names = FALSE)
+        }
+      )
+
     shiny::showModal(
       shiny::modalDialog(
         easyClose = TRUE,
@@ -426,6 +438,11 @@ server <- function(input, output, session) {
         shiny::p(
           glue::glue(
             "{format(as.Date(payroll_dates$payroll_start), \"%B %d, %Y\")} to {format(as.Date(payroll_dates$payroll_end), \"%B %d, %Y\")}"
+          )
+        ),
+        shiny::p(
+          glue::glue(
+            "Grand Total : {sum(time_data$Total)}"
           )
         ),
         shiny::div(
@@ -445,9 +462,8 @@ server <- function(input, output, session) {
           )
         ),
         footer = shiny::tagList(
-          shiny::tags$button(
-            class = "btn btn-outline-secondary",
-            id = "downloadTimeData",
+          shiny::downloadButton(
+            "downloadPayroll",
             "Download"
           ),
           shiny::modalButton("Dismiss")
