@@ -522,31 +522,18 @@ server <- function(input, output, session) {
     shinyjs::onclick(
       "uploadTimeData",
       {
-        if(devSwitchClicked){
-          shiny::showNotification("Uploading...")
+        shiny::showNotification("Uploading...")
 
-          con <- pool::poolCheckout(pool)
+        con <- pool::poolCheckout(pool)
 
-          upload_time(
-            timesheet_hours,
-            con
-          )
+        upload_time(
+          timesheet_hours,
+          con
+        )
 
-          pool::poolReturn(con)
+        pool::poolReturn(con)
 
-          shiny::showNotification("Success!")
-
-        } else {
-          shiny::showNotification("Uploading...")
-
-          upload_time(
-            timesheet_hours,
-            dev_mode = TRUE
-          )
-
-          shiny::showNotification("Success!")
-
-        }
+        shiny::showNotification("Success!")
       }
     )
 
