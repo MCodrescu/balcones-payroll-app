@@ -307,8 +307,19 @@ server <- function(input, output, session) {
   # Database Connection ---------------------------------------------------
 
   keyset <- tryCatch({
-    keyring::key_get("BalconesDBHost")
-    TRUE
+    pool <-
+      pool::dbPool(
+        RMySQL::MySQL(),
+        host = keyring::key_get("BalconesDBHost"),
+        port = 3306,
+        username = keyring::key_get("BalconesDBUsername"),
+        password = keyring::key_get("BalconesDBPassword"),
+        dbname = "job_register"
+      )
+
+
+    DBI::dbIsValid(pool)
+
   }, error = function(error){
     FALSE
   })
@@ -393,7 +404,7 @@ server <- function(input, output, session) {
             port = 3306,
             username = keyring::key_get("BalconesDBUsername"),
             password = keyring::key_get("BalconesDBPassword"),
-            dbname = "job_register_dev"
+            dbname = "job_register"
           )
 
         shiny::showNotification("Connected")
