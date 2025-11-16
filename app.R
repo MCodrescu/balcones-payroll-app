@@ -54,6 +54,17 @@ ui <- shiny::bootstrapPage(
               class = "nav-item",
               shiny::tags$a(
                 class = "nav-link",
+                id = "expensesNav",
+                role = "button",
+                "data-bs-toggle" = "dropdown",
+                "Expenses"
+              )
+            ),
+
+            shiny::tags$li(
+              class = "nav-item",
+              shiny::tags$a(
+                class = "nav-link",
                 shiny::tags$div(
                   class = "form-check form-switch",
                   shiny::tags$input(
@@ -85,6 +96,63 @@ ui <- shiny::bootstrapPage(
     class = "container py-3",
     shiny::div(
       class = "row justify-content-center",
+
+      ### Expenses Div ---------------------------------------------------------
+      shiny::div(
+        class = "col-10 col-md-9 col-lg-6 bg-light py-3 my-3 px-5 border rounded shadow",
+        id = "expensesDiv",
+        style = "display: none;",
+
+        shiny::tags$h3(
+          class = "text-center pb-3",
+          "Add Expense"
+        ),
+
+        shiny::tags$div(
+          class = "input-group pb-3",
+          shiny::selectInput(
+            inputId = "expenseCategorySelect",
+            "Category",
+            choices = NULL,
+            width = "100%"
+          ),
+          shiny::numericInput(
+            inputId = "expenseAmountInput",
+            label = "Amount",
+            value = NA,
+            width = "100%"
+          ),
+          shiny::selectInput(
+            inputId = "expenseEmployeeSelect",
+            "Employee",
+            choices = NULL,
+            width = "100%"
+          ),
+          shiny::selectInput(
+            inputId = "expenseJobNumberSelect",
+            "Job Number",
+            choices = NULL,
+            width = "100%"
+          ),
+          shiny::selectInput(
+            inputId = "expenseInvoiceNumberSelect",
+            "Invoice Number",
+            choices = NULL,
+            width = "100%"
+          ),
+          shiny::dateInput(
+            inputId = "expenseDate",
+            label = "Date",
+            width = "100%"
+          ),
+          shiny::actionButton(
+            inputId = "expenseSubmit",
+            label = "Submit"
+          )
+        )
+
+      ),
+
 
       ### Payroll Div ------------------------------------------------------------
       shiny::div(
@@ -227,11 +295,113 @@ server <- function(input, output, session) {
   shinyjs::onclick("payrollNav", {
     shinyjs::hideElement("reportsDiv")
     shinyjs::hideElement("uploadDiv")
+    shinyjs::hideElement("expensesDiv")
     shinyjs::showElement("payrollDiv")
+  })
+
+  shinyjs::onclick("expensesNav", {
+    shinyjs::hideElement("payrollDiv")
+    shinyjs::hideElement("reportsDiv")
+    shinyjs::hideElement("uploadDiv")
+    shinyjs::showElement("expensesDiv")
+
+    # Retrieve selector input values from database
+    all_job_numbers <-
+      DBI::dbGetQuery(
+        pool,
+        "SELECT DISTINCT job_number FROM jobs"
+      ) |>
+      dplyr::pull(1)
+
+    all_invoice_numbers <-
+      DBI::dbGetQuery(
+        pool,
+        "SELECT DISTINCT invoice_number FROM invoices"
+      ) |>
+      dplyr::pull(1)
+
+    all_employees <-
+      DBI::dbGetQuery(
+        pool,
+        "SELECT DISTINCT employee_name, employee_id FROM employees"
+      )
+
+    all_employees_list <- setNames(
+      as.list(all_employees$employee_id), all_employees$employee_name
+    )
+
+    all_expense_categories <-
+      DBI::dbGetQuery(
+        pool,
+        "SELECT DISTINCT expense_category_id, expense_category FROM expense_categories"
+      )
+
+    all_expense_categories_list <- setNames(
+      as.list(all_expense_categories$expense_category_id), all_expense_categories$expense_category
+    )
+
+    # update the select inputs
+    shiny::updateSelectInput(
+      session,
+      "expenseJobNumberSelect",
+      choices = all_job_numbers
+    )
+
+    shiny::updateSelectInput(
+      session,
+      "expenseInvoiceNumberSelect",
+      choices = all_invoice_numbers
+    )
+
+    shiny::updateSelectInput(
+      session,
+      "expenseEmployeeSelect",
+      choices = all_employees_list
+    )
+
+    shiny::updateSelectInput(
+      session,
+      "expenseCategorySelect",
+      choices = all_expense_categories_list
+    )
+
+    # Update database with values
+    shiny::observeEvent(input$expenseSubmit, {
+
+      expense_data <- list(
+        amount = input$expenseAmountInput,
+        employee = input$expenseEmployeeSelect,
+        date = input$expenseDate,
+        cat = input$expenseCategorySelect,
+        job = input$expenseJobNumberSelect,
+        inv = input$expenseInvoiceNumberSelect
+      )
+
+      # Use DBI::sqlInterpolate with unquoted placeholders
+      interpolated_sql <- DBI::sqlInterpolate(
+        conn = DBI::ANSI(),
+        sql = "INSERT INTO expenses
+          (amount, employee_id, expense_date, expense_category, job_number, invoice_number)
+          VALUES (?amount, ?employee, ?date, ?cat, ?job, ?inv)", # Note: NO quotes around ?date, ?job, ?inv
+        amount = expense_data$amount,
+        employee = expense_data$employee,
+        date = expense_data$date,
+        cat = expense_data$cat,
+        job = expense_data$job,
+        inv = expense_data$inv
+      )
+
+      DBI::dbSendQuery(
+        conn = pool,
+        statement = interpolated_sql
+      )
+    })
+
   })
 
   shinyjs::onclick("reportsNav", {
     shinyjs::hideElement("payrollDiv")
+    shinyjs::hideElement("expensesDiv")
     shinyjs::hideElement("uploadDiv")
     shinyjs::showElement("reportsDiv")
 
