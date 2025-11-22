@@ -408,7 +408,10 @@ server <- function(input, output, session) {
     all_job_numbers <-
       DBI::dbGetQuery(
         pool,
-        "SELECT DISTINCT job_number FROM employee_time"
+        "SELECT DISTINCT job_number
+          FROM employee_time
+          ORDER BY MAX(work_date) OVER (
+          PARTITION BY job_number) DESC;"
       ) |>
       dplyr::pull(1)
 
