@@ -365,38 +365,6 @@ server <- function(input, output, session) {
       choices = all_expense_categories_list
     )
 
-    # Update database with values
-    shiny::observeEvent(input$expenseSubmit, {
-
-      expense_data <- list(
-        amount = input$expenseAmountInput,
-        employee = input$expenseEmployeeSelect,
-        date = input$expenseDate,
-        cat = input$expenseCategorySelect,
-        job = input$expenseJobNumberSelect,
-        inv = input$expenseInvoiceNumberSelect
-      )
-
-      # Use DBI::sqlInterpolate with unquoted placeholders
-      interpolated_sql <- DBI::sqlInterpolate(
-        conn = DBI::ANSI(),
-        sql = "INSERT INTO expenses
-          (amount, employee_id, expense_date, expense_category, job_number, invoice_number)
-          VALUES (?amount, ?employee, ?date, ?cat, ?job, ?inv)", # Note: NO quotes around ?date, ?job, ?inv
-        amount = expense_data$amount,
-        employee = expense_data$employee,
-        date = expense_data$date,
-        cat = expense_data$cat,
-        job = expense_data$job,
-        inv = expense_data$inv
-      )
-
-      DBI::dbSendQuery(
-        conn = pool,
-        statement = interpolated_sql
-      )
-    })
-
   })
 
   shinyjs::onclick("reportsNav", {
@@ -585,6 +553,43 @@ server <- function(input, output, session) {
     )
   }
 
+  ## Add Expense ---------------------------------------------------------------
+  shiny::observeEvent(input$expenseSubmit, {
+
+    expense_data <- list(
+      amount = input$expenseAmountInput,
+      employee = input$expenseEmployeeSelect,
+      date = input$expenseDate,
+      cat = input$expenseCategorySelect,
+      job = input$expenseJobNumberSelect,
+      inv = input$expenseInvoiceNumberSelect
+    )
+
+    # Use DBI::sqlInterpolate with unquoted placeholders
+    interpolated_sql <- DBI::sqlInterpolate(
+      conn = DBI::ANSI(),
+      sql = "INSERT INTO expenses
+          (amount, employee_id, expense_date, expense_category_id, job_number, invoice_number)
+          VALUES (?amount, ?employee, ?date, ?cat, ?job, ?inv)", # Note: NO quotes around ?date, ?job, ?inv
+      amount = expense_data$amount,
+      employee = expense_data$employee,
+      date = expense_data$date,
+      cat = expense_data$cat,
+      job = expense_data$job,
+      inv = expense_data$inv
+    )
+
+    pool::poolWithTransaction(pool, function(conn){
+      DBI::dbExecute(
+        conn = conn,
+        statement = interpolated_sql
+      )
+    })
+
+    shiny::showNotification("Expense Added Successfully")
+
+
+  })
 
 
   # Payroll --------------------------------------------------------------------
